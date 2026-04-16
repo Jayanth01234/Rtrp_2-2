@@ -13,15 +13,19 @@ const createJoinRequest = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
+    if (team.members.some(memberId => memberId.toString() === req.user.id)) {
+        res.status(400);
+        throw new Error('User is already a member of this team');
+    }
+
     const existingRequest = await JoinRequest.findOne({
         user: req.user.id,
-        team: req.params.teamId,
-        status: 'Pending'
+        team: req.params.teamId
     });
 
     if (existingRequest) {
         res.status(400);
-        throw new Error('Join request already pending');
+        throw new Error('Join request already exists');
     }
 
     const joinRequest = await JoinRequest.create({
@@ -77,10 +81,9 @@ const updateRequestStatus = asyncHandler(async (req, res) => {
     await joinRequest.save();
 
     if (status === 'Accepted') {
-        if (!team.members.includes(joinRequest.user)) {
-            team.members.push(joinRequest.user);
-            await team.save();
-        }
+        await Team.findByIdAndUpdate(joinRequest.team, {
+            $addToSet: { members: joinRequest.user }
+        });
     }
 
     res.json(joinRequest);
