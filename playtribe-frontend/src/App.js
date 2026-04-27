@@ -5,7 +5,10 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TeamsPage from './pages/TeamsPage';
+import TeamDetailsPage from './pages/TeamDetailsPage';
 import MatchesPage from './pages/MatchesPage';
+import MatchDetailsPage from './pages/MatchDetailsPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -37,6 +40,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <MatchesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team/:teamId"
+            element={
+              <ProtectedRoute>
+                <TeamDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/match/:matchId"
+            element={
+              <ProtectedRoute>
+                <MatchDetailsPage />
               </ProtectedRoute>
             }
           />

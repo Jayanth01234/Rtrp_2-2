@@ -2,6 +2,8 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+import NotificationBell from './NotificationBell';
+
 const Navbar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -28,10 +30,29 @@ const Navbar = () => {
           <Link to="/matches" className={isActive('/matches')}>
             Matches
           </Link>
+          <Link to="/profile" className={isActive('/profile')}>
+            Profile
+          </Link>
         </nav>
       </div>
       <div className="navbar-right">
-        {user && <span className="navbar-user">Hi, {user.name}</span>}
+        {user && <NotificationBell />}
+        {user && (
+          <div className="navbar-user-section">
+            {user.profileImage ? (
+              <img 
+                src={`http://localhost:5000/uploads/${user.profileImage}`} 
+                alt={user.name}
+                className="navbar-avatar"
+              />
+            ) : (
+              <div className="navbar-avatar-placeholder">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="navbar-user">Hi, {user.name}</span>
+          </div>
+        )}
         <button type="button" className="btn btn-secondary btn-small" onClick={handleLogout}>
           Logout
         </button>

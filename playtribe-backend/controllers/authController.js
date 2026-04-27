@@ -10,9 +10,12 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password, city, preferredSport, skillLevel } = req.body;
+    console.log('Registration request body:', req.body);
+    
+    const { name, email, password, city, sport, skillLevel } = req.body;
 
-    if (!name || !email || !password || !city || !preferredSport || !skillLevel) {
+    if (!name || !email || !password || !city || !sport || !skillLevel) {
+        console.log('Missing fields:', { name, email, password: !!password, city, sport, skillLevel });
         res.status(400);
         throw new Error('Please add all fields');
     }
@@ -20,13 +23,16 @@ const registerUser = asyncHandler(async (req, res) => {
     const userExists = await User.findOne({ email });
 
     if (userExists) {
+        console.log('User already exists:', email);
         res.status(400);
         throw new Error('User already exists');
     }
 
     const user = await User.create({
-        name, email, password, city, preferredSport, skillLevel
+        name, email, password, city, sport, skillLevel
     });
+
+    console.log('User created successfully:', user.email);
 
     if (user) {
         res.status(201).json({
@@ -45,11 +51,15 @@ const registerUser = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
+    console.log('Login request body:', req.body);
+    
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
+    console.log('User found:', !!user);
 
     if (user && (await user.matchPassword(password))) {
+        console.log('Login successful for:', email);
         res.json({
             _id: user.id,
             name: user.name,
@@ -57,6 +67,7 @@ const loginUser = asyncHandler(async (req, res) => {
             token: generateToken(user._id)
         });
     } else {
+        console.log('Login failed for:', email);
         res.status(401);
         throw new Error('Invalid credentials');
     }

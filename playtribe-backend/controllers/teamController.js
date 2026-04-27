@@ -5,10 +5,25 @@ const Team = require('../models/Team');
 // @route   GET /api/teams
 // @access  Public
 const getTeams = asyncHandler(async (req, res) => {
-    const city = req.query.city;
-    const filter = city ? { city } : {};
-    const teams = await Team.find(filter).populate('admin', 'name').populate('members', 'name');
-    res.json(teams);
+    const { city, sport, skillLevel } = req.query;
+    const filter = {};
+
+    if (city) {
+        filter.city = city;
+    }
+    if (sport) {
+        filter.sport = sport;
+    }
+
+    const teams = await Team.find(filter)
+        .populate('admin', 'name profileImage skillLevel')
+        .populate('members', 'name skillLevel profileImage');
+
+    const filteredTeams = skillLevel
+        ? teams.filter((team) => team.admin?.skillLevel === skillLevel)
+        : teams;
+
+    res.json(filteredTeams);
 });
 
 // @desc    Create a team
@@ -31,7 +46,11 @@ const createTeam = asyncHandler(async (req, res) => {
         members: [req.user.id]
     });
 
-    res.status(201).json(team);
+    const populatedTeam = await Team.findById(team._id)
+        .populate('admin', 'name profileImage')
+        .populate('members', 'name skillLevel profileImage');
+
+    res.status(201).json(populatedTeam);
 });
 
 // @desc    Get single team
@@ -39,8 +58,8 @@ const createTeam = asyncHandler(async (req, res) => {
 // @access  Public
 const getTeamById = asyncHandler(async (req, res) => {
     const team = await Team.findById(req.params.id)
-        .populate('admin', 'name email')
-        .populate('members', 'name skillLevel');
+        .populate('admin', 'name email profileImage')
+        .populate('members', 'name skillLevel profileImage');
 
     if (team) {
         res.json(team);

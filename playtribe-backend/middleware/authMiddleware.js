@@ -10,14 +10,18 @@ const protect = asyncHandler(async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = await User.findById(decoded.id).select('-password');
+            console.log('Auth middleware - User authenticated:', req.user?.name, req.user?.id);
+            console.log('Request path:', req.path, req.method);
             next();
         } catch (error) {
+            console.log('Auth middleware error:', error.message);
             res.status(401);
             throw new Error('Not authorized, token failed');
         }
     }
 
     if (!token) {
+        console.log('Auth middleware - No token found');
         res.status(401);
         throw new Error('Not authorized, no token');
     }

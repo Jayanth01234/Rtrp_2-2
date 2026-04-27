@@ -8,7 +8,7 @@ const RegisterPage = () => {
     email: '',
     password: '',
     city: '',
-    preferredSport: '',
+    sport: '',
     skillLevel: 'Beginner',
   });
   const [error, setError] = useState('');
@@ -26,11 +26,17 @@ const RegisterPage = () => {
     setError('');
     setSuccess('');
     setLoading(true);
+    
+    console.log('Submitting registration data:', formData);
+    
     try {
-      await registerService(formData);
+      const response = await registerService(formData);
+      console.log('Registration response:', response);
       setSuccess('Registration successful! You can now login.');
       setTimeout(() => navigate('/login'), 1000);
     } catch (err) {
+      console.log('Registration error:', err);
+      console.log('Error response:', err.response?.data);
       const message =
         err.response?.data?.message || 'Failed to register. Please try again.';
       setError(message);
@@ -104,11 +110,11 @@ const RegisterPage = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="preferredSport">Preferred Sport</label>
+              <label htmlFor="sport">Preferred Sport</label>
               <input
-                id="preferredSport"
-                name="preferredSport"
-                value={formData.preferredSport}
+                id="sport"
+                name="sport"
+                value={formData.sport}
                 onChange={handleChange}
                 required
                 placeholder="Football, Cricket, Badminton..."

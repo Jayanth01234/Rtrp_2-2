@@ -15,8 +15,12 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    console.log('Submitting login data:', { email, password: '***' });
+    
     try {
       const data = await loginService({ email, password });
+      console.log('Login response:', data);
       if (data && data.token) {
         login(
           { _id: data._id, name: data.name, email: data.email },
@@ -24,9 +28,12 @@ const LoginPage = () => {
         );
         navigate('/dashboard');
       } else {
+        console.log('Unexpected response:', data);
         setError('Unexpected response from server.');
       }
     } catch (err) {
+      console.log('Login error:', err);
+      console.log('Error response:', err.response?.data);
       const message =
         err.response?.data?.message || 'Failed to login. Please try again.';
       setError(message);
