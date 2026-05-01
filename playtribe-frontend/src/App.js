@@ -9,6 +9,7 @@ import TeamDetailsPage from './pages/TeamDetailsPage';
 import MatchesPage from './pages/MatchesPage';
 import MatchDetailsPage from './pages/MatchDetailsPage';
 import ProfilePage from './pages/ProfilePage';
+import ChatPage from './pages/ChatPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -64,6 +65,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MatchDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat/:type/:id"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             }
           />

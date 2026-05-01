@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import Navbar from '../components/Navbar';
 import { createMatch, getMatches } from '../services/matchService';
 import { createMatchJoinRequest, getMyMatchRequests, getMatchRequests } from '../services/matchRequestService';
 import { useAuth } from '../context/AuthContext';
 
+const googleLibraries = ['places'];
+
 const MatchesPage = () => {
   const skillLevels = ['Beginner', 'Intermediate', 'Advanced'];
   const { user } = useAuth();
+  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
+  const { isLoaded: isMapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
+    googleMapsApiKey,
+    libraries: googleLibraries,
+  });
   const [matches, setMatches] = useState([]);
   const [filters, setFilters] = useState({
     city: '',
@@ -19,17 +27,51 @@ const MatchesPage = () => {
   const [formData, setFormData] = useState({
     sport: '',
     date: '',
-    time: '',
-    location: '',
+    startTime: '',
+    endTime: '',
     city: '',
     maxPlayers: 10,
+    latitude: '',
+    longitude: '',
+    locationUrl: '',
   });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [autocomplete, setAutocomplete] = useState(null);
   const [joiningId, setJoiningId] = useState(null);
   const [myMatchRequests, setMyMatchRequests] = useState([]);
   const [allMatchRequests, setAllMatchRequests] = useState([]);
   const normalizeStatus = (status) => String(status || '').toLowerCase();
+  const now = new Date();
+  const todayDate = now.toISOString().split('T')[0];
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const getMatchSchedule = (match) => {
+    const dateString = new Date(match.date).toISOString().split('T')[0];
+    const start = match.startTime || match.time || '';
+    const end = match.endTime || match.time || '';
+    const startDateTime = start ? new Date(`${dateString}T${start}:00`) : null;
+    const endDateTime = end ? new Date(`${dateString}T${end}:00`) : null;
+
+    return { start, end, startDateTime, endDateTime };
+  };
+
+  const getMatchStatus = (match) => {
+    const { startDateTime, endDateTime } = getMatchSchedule(match);
+    const current = new Date();
+
+    if (startDateTime && !Number.isNaN(startDateTime.getTime())) {
+      if (endDateTime && !Number.isNaN(endDateTime.getTime()) && current > endDateTime) {
+        return { label: 'Ended', className: 'tag tag-ended' };
+      }
+      if (endDateTime && !Number.isNaN(endDateTime.getTime()) && current >= startDateTime && current <= endDateTime) {
+        return { label: 'Running', className: 'tag tag-running' };
+      }
+    }
+
+    return { label: 'Upcoming', className: 'tag tag-upcoming' };
+  };
 
   const fetchMatches = async (activeFilters = {}) => {
     setLoading(true);
@@ -57,6 +99,7 @@ const MatchesPage = () => {
         sport: user.sport || '',
         city: user.city || ''
       }));
+      setLocationSearch('');
       fetchMyMatchRequests();
     }
   }, [user]);
@@ -81,7 +124,10 @@ const MatchesPage = () => {
     
     try {
       // Get requests for all matches created by this user
-      const userMatches = matches.filter(match => match.creator._id === user._id);
+      const userMatches = matches.filter((match) => {
+        const creatorId = match?.creator?._id || match?.creator;
+        return creatorId && user?._id && String(creatorId) === String(user._id);
+      });
       const allRequests = [];
       
       for (const match of userMatches) {
@@ -118,6 +164,9 @@ const MatchesPage = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'location') {
+      setLocationSearch(value);
+    }
   };
 
   const handleCreateMatch = async (e) => {
@@ -125,6 +174,24 @@ const MatchesPage = () => {
     setFormError('');
     setFormLoading(true);
     try {
+      const selectedStartDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
+      const selectedEndDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+
+      if (Number.isNaN(selectedStartDateTime.getTime()) || Number.isNaN(selectedEndDateTime.getTime())) {
+        setFormError('Please select a valid date and time.');
+        return;
+      }
+
+      if (selectedStartDateTime <= new Date()) {
+        setFormError('Please select a future start time for the match.');
+        return;
+      }
+
+      if (selectedEndDateTime <= selectedStartDateTime) {
+        setFormError('End time must be later than start time.');
+        return;
+      }
+
       const payload = {
         ...formData,
         maxPlayers: Number(formData.maxPlayers),
@@ -134,11 +201,15 @@ const MatchesPage = () => {
       setFormData({
         sport: '',
         date: '',
-        time: '',
-        location: '',
+        startTime: '',
+        endTime: '',
         city: '',
         maxPlayers: 10,
+        latitude: '',
+        longitude: '',
+        locationUrl: '',
       });
+      setLocationSearch('');
       // Fetch requests after creating a new match
       setTimeout(() => fetchAllMatchRequests(), 100);
     } catch (err) {
@@ -170,6 +241,36 @@ const MatchesPage = () => {
     }
   };
 
+  
+  const handlePlaceChanged = () => {
+    const place = autocomplete?.getPlace();
+    if (!place) {
+      return;
+    }
+
+    const geometryLocation = place.geometry?.location;
+    const latitude = geometryLocation?.lat?.();
+    const longitude = geometryLocation?.lng?.();
+    const cityComponent = place.address_components?.find((component) =>
+      component.types.some((type) =>
+        ['locality', 'administrative_area_level_2', 'postal_town', 'sublocality'].includes(type)
+      )
+    );
+
+    const selectedLocation = place.formatted_address || place.name || '';
+    const selectedCity = cityComponent?.long_name || '';
+
+    setFormData((prev) => ({
+      ...prev,
+      location: selectedLocation,
+      city: selectedCity || prev.city,
+      latitude: latitude ? latitude.toFixed(6) : prev.latitude,
+      longitude: longitude ? longitude.toFixed(6) : prev.longitude,
+    }));
+    setLocationSearch(selectedLocation);
+  };
+
+  
   return (
     <div className="page">
       <Navbar />
@@ -224,25 +325,31 @@ const MatchesPage = () => {
 
           <div className="list">
             {matches.map((match) => {
-              const currentPlayers = match.participants ? match.participants.length : 0;
+              const participants = (match.participants || []).filter(Boolean);
+              const currentPlayers = participants.length;
               const full = currentPlayers >= match.maxPlayers;
               const hasRequested = myMatchRequests.some(
                 req => {
-                  console.log('Match request comparison:', req.match._id, 'vs match._id:', match._id);
+                  const reqMatchId = req?.match?._id || req?.match;
+                  if (!reqMatchId) return false;
+
+                  console.log('Match request comparison:', reqMatchId, 'vs match._id:', match._id);
                   console.log('Match request status:', req.status);
-                  console.log('Type comparison:', typeof req.match._id, typeof match._id);
-                  // Try both string comparison and object comparison
-                  const matchIdMatch = req.match._id === match._id || 
-                                       req.match._id?.toString() === match._id?.toString() ||
-                                       String(req.match._id) === String(match._id);
+                  console.log('Type comparison:', typeof reqMatchId, typeof match._id);
+                  const matchIdMatch =
+                    String(reqMatchId) === String(match._id);
                   console.log('Match ID match:', matchIdMatch);
                   return matchIdMatch && normalizeStatus(req.status) === 'pending';
                 }
               );
-              const isParticipant = match.participants?.some(
-                p => p._id === user?._id || p === user?._id
-              );
-              const isCreator = match.creator._id === user?._id;
+              const isParticipant = participants.some((p) => {
+                const participantId = p?._id || p;
+                return participantId && user?._id && String(participantId) === String(user._id);
+              });
+              const creatorId = match?.creator?._id || match?.creator;
+              const isCreator = creatorId && user?._id && String(creatorId) === String(user._id);
+              const schedule = getMatchSchedule(match);
+              const status = getMatchStatus(match);
               const pendingRequestsCount = allMatchRequests.filter(
                 req => {
                   const requestMatchId = String(req.match?._id || req.match);
@@ -261,8 +368,8 @@ const MatchesPage = () => {
                       </Link>
                     </h3>
                     <p className="muted">
-                      {match.city} - {new Date(match.date).toLocaleDateString()} at{' '}
-                      {match.time}
+                      {match.city} - {new Date(match.date).toLocaleDateString()} |{' '}
+                      {schedule.start} to {schedule.end}
                     </p>
                   </div>
                   <div className="match-meta">
@@ -270,22 +377,25 @@ const MatchesPage = () => {
                       {match.creator?.profileImage ? (
                         <img 
                           src={`http://localhost:5000/uploads/${match.creator.profileImage}`} 
-                          alt={match.creator.name}
+                          alt={match.creator?.name || 'Match creator'}
                           className="creator-avatar"
                         />
                       ) : (
                         <div className="creator-avatar-placeholder">
-                          {match.creator.name?.charAt(0).toUpperCase() || 'A'}
+                          {match.creator?.name?.charAt(0).toUpperCase() || 'A'}
                         </div>
                       )}
                       <span className="creator-name">Created by {match.creator?.name}</span>
                     </div>
                   </div>
                   <div className="list-item-actions">
+                    <span className={status.className}>
+                      {status.label}
+                    </span>
                     <span className="tag">
                       {currentPlayers}/{match.maxPlayers} players
                     </span>
-                    {match.creator._id === user?._id && (
+                    {isCreator && (
                       <Link 
                         to={`/match/${match._id}`} 
                         className={`btn btn-small ${pendingRequestsCount > 0 ? 'requests-with-pending' : 'btn-outline'}`}
@@ -293,18 +403,34 @@ const MatchesPage = () => {
                         Requests {pendingRequestsCount > 0 && `(${pendingRequestsCount})`}
                       </Link>
                     )}
-                    {!isCreator && (
+                    {isParticipant && (
+                      <Link 
+                        to={`/chat/match/${match._id}`} 
+                        className="btn btn-small btn-primary chat-btn"
+                      >
+                        💬 Chat
+                      </Link>
+                    )}
+                    {match.locationUrl && (
+                      <button
+                        type="button"
+                        className="btn btn-small btn-primary address-btn"
+                        onClick={() => window.open(match.locationUrl, '_blank')}
+                        title="Get address in Google Maps"
+                      >
+                        Get Address
+                      </button>
+                    )}
+                    {!isParticipant && (
                       <button
                         type="button"
                         className={`btn btn-small ${
-                          isParticipant ? 'btn-secondary' : 
                           hasRequested ? 'btn-outline' : 'btn-primary'
                         }`}
-                        disabled={isParticipant || hasRequested || full || joiningId === match._id}
+                        disabled={hasRequested || full || joiningId === match._id}
                         onClick={() => handleJoinMatch(match._id)}
                       >
-                        {isParticipant ? 'Joined' : 
-                         hasRequested ? 'Request Sent' : 
+                        {hasRequested ? 'Request Sent' : 
                          full ? 'Full' :
                          joiningId === match._id ? 'Joining...' : 'Request to Join'}
                       </button>
@@ -340,32 +466,35 @@ const MatchesPage = () => {
                 type="date"
                 value={formData.date}
                 onChange={handleFormChange}
+                min={todayDate}
                 required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="time">Time</label>
+              <label htmlFor="startTime">Start Time</label>
               <input
-                id="time"
-                name="time"
+                id="startTime"
+                name="startTime"
                 type="time"
-                value={formData.time}
+                value={formData.startTime}
                 onChange={handleFormChange}
+                min={formData.date === todayDate ? currentTime : undefined}
                 required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="location">Location</label>
+              <label htmlFor="endTime">End Time</label>
               <input
-                id="location"
-                name="location"
-                value={formData.location}
+                id="endTime"
+                name="endTime"
+                type="time"
+                value={formData.endTime}
                 onChange={handleFormChange}
+                min={formData.startTime || (formData.date === todayDate ? currentTime : undefined)}
                 required
-                placeholder="e.g. City Stadium"
               />
             </div>
-            <div className="form-group">
+                        <div className="form-group">
               <label htmlFor="city">City</label>
               <input
                 id="city"
@@ -375,6 +504,21 @@ const MatchesPage = () => {
                 required
                 placeholder="e.g. Bangalore"
               />
+            </div>
+            <div className="form-group">
+              <label htmlFor="locationUrl">Google Maps URL *</label>
+              <input
+                id="locationUrl"
+                name="locationUrl"
+                type="text"
+                value={formData.locationUrl}
+                onChange={handleFormChange}
+                required
+                placeholder="Paste Google Maps URL here"
+              />
+              <p className="location-helper">
+                Paste a Google Maps URL here so others can easily find the location.
+              </p>
             </div>
             <div className="form-group">
               <label htmlFor="maxPlayers">Max players</label>

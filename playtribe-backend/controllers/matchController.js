@@ -2,6 +2,11 @@ const asyncHandler = require('express-async-handler');
 const Match = require('../models/Match');
 const Notification = require('../models/Notification');
 
+const parseMatchDateTime = (dateValue, timeValue) => {
+    const candidate = new Date(`${dateValue}T${timeValue}:00`);
+    return Number.isNaN(candidate.getTime()) ? null : candidate;
+};
+
 // @desc    Get all matches by city
 // @route   GET /api/matches
 // @access  Public
@@ -31,20 +36,42 @@ const getMatches = asyncHandler(async (req, res) => {
 // @route   POST /api/matches
 // @access  Private
 const createMatch = asyncHandler(async (req, res) => {
-    const { sport, date, time, location, city, maxPlayers } = req.body;
+    const { sport, date, startTime, endTime, city, maxPlayers, locationUrl, latitude, longitude } = req.body;
 
-    if (!sport || !date || !time || !location || !city || !maxPlayers) {
+    if (!sport || !date || !startTime || !endTime || !city || !maxPlayers || !locationUrl) {
         res.status(400);
         throw new Error('Please add all required fields');
+    }
+
+    const startDateTime = parseMatchDateTime(date, startTime);
+    const endDateTime = parseMatchDateTime(date, endTime);
+
+    if (!startDateTime || !endDateTime) {
+        res.status(400);
+        throw new Error('Please select a valid date and time');
+    }
+
+    if (startDateTime <= new Date()) {
+        res.status(400);
+        throw new Error('Please select a future start time for the match');
+    }
+
+    if (endDateTime <= startDateTime) {
+        res.status(400);
+        throw new Error('End time must be later than start time');
     }
 
     const match = await Match.create({
         sport,
         date,
-        time,
-        location,
+        time: startTime,
+        startTime,
+        endTime,
         city,
         maxPlayers,
+        locationUrl,
+        latitude,
+        longitude,
         creator: req.user.id,
         participants: [req.user.id]
     });

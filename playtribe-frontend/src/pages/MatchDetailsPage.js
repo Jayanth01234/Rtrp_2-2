@@ -14,6 +14,32 @@ const MatchDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const getMatchSchedule = (matchData) => {
+    const dateString = new Date(matchData.date).toISOString().split('T')[0];
+    const start = matchData.startTime || matchData.time || '';
+    const end = matchData.endTime || matchData.time || '';
+    const startDateTime = start ? new Date(`${dateString}T${start}:00`) : null;
+    const endDateTime = end ? new Date(`${dateString}T${end}:00`) : null;
+
+    return { start, end, startDateTime, endDateTime };
+  };
+
+  const getMatchStatus = (matchData) => {
+    const { startDateTime, endDateTime } = getMatchSchedule(matchData);
+    const now = new Date();
+
+    if (startDateTime && !Number.isNaN(startDateTime.getTime())) {
+      if (endDateTime && !Number.isNaN(endDateTime.getTime()) && now > endDateTime) {
+        return { label: 'Ended', className: 'tag tag-ended' };
+      }
+      if (endDateTime && !Number.isNaN(endDateTime.getTime()) && now >= startDateTime && now <= endDateTime) {
+        return { label: 'Running', className: 'tag tag-running' };
+      }
+    }
+
+    return { label: 'Upcoming', className: 'tag tag-upcoming' };
+  };
+
   useEffect(() => {
     fetchMatchData();
     if (user) {
@@ -52,6 +78,8 @@ const MatchDetailsPage = () => {
   };
 
   const isCreator = match && match.creator._id === user?._id;
+  const schedule = match ? getMatchSchedule(match) : null;
+  const status = match ? getMatchStatus(match) : null;
 
   if (loading) return <div className="container">Loading...</div>;
   if (error) return <div className="container alert alert-error">{error}</div>;
@@ -64,8 +92,10 @@ const MatchDetailsPage = () => {
         <section className="card">
           <div className="team-info">
             <h2>{match.sport} Match</h2>
+            {status && <p><strong>Status:</strong> <span className={status.className}>{status.label}</span></p>}
             <p><strong>Date:</strong> {new Date(match.date).toLocaleDateString()}</p>
-            <p><strong>Time:</strong> {match.time}</p>
+            <p><strong>Start Time:</strong> {schedule?.start}</p>
+            <p><strong>End Time:</strong> {schedule?.end}</p>
             <p><strong>Location:</strong> {match.location}</p>
             <p><strong>City:</strong> {match.city}</p>
             <p><strong>Max Players:</strong> {match.maxPlayers}</p>

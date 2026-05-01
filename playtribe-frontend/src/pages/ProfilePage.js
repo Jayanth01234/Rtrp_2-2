@@ -1,21 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { getUserProfile, updateUserProfile, uploadProfileImage } from '../services/userService';
+import { Link } from 'react-router-dom';
+import { updateUserProfile, uploadProfileImage } from '../services/userService';
+import { getTeams } from '../services/teamService';
+import { getMatches } from '../services/matchService';
+import { getMyRequests } from '../services/requestService';
+import { getMyMatchRequests } from '../services/matchRequestService';
 import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/Navbar';
 
 const ProfilePage = () => {
   const { user, updateUserProfile: updateGlobalUser } = useAuth();
   const [loading, setLoading] = useState(!user);
   const [editing, setEditing] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     city: '',
     sport: '',
     skillLevel: ''
   });
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('');
+  const [toast, setToast] = useState({ text: '', type: '' });
   const [uploadLoading, setUploadLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activity, setActivity] = useState({
+    myTeams: [],
+    joinedMatches: 0,
+    pendingRequests: 0
+  });
 
   useEffect(() => {
     if (user) {
@@ -29,12 +41,64 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  
+  useEffect(() => {
+    const fetchActivity = async () => {
+      if (!user) {
+        return;
+      }
+
+      setActivityLoading(true);
+      try {
+        const [teams, matches, teamRequests, matchRequests] = await Promise.all([
+          getTeams(),
+          getMatches(),
+          getMyRequests(),
+          getMyMatchRequests()
+        ]);
+
+        const myTeams = teams.filter(
+          (team) =>
+            team.admin?._id === user._id ||
+            (team.members || []).some((member) => (member._id || member) === user._id)
+        );
+
+        const joinedMatches = matches.filter(
+          (match) =>
+            match.creator?._id === user._id ||
+            (match.participants || []).some((participant) => (participant._id || participant) === user._id)
+        ).length;
+
+        const pendingTeamRequests = teamRequests.filter(
+          (request) => String(request.status || '').toLowerCase() === 'pending'
+        ).length;
+        const pendingMatchRequests = matchRequests.filter(
+          (request) => String(request.status || '').toLowerCase() === 'pending'
+        ).length;
+
+        setActivity({
+          myTeams: myTeams.slice(0, 3),
+          joinedMatches,
+          pendingRequests: pendingTeamRequests + pendingMatchRequests
+        });
+      } catch (error) {
+        console.log('Error loading profile activity:', error);
+        setActivity({
+          myTeams: [],
+          joinedMatches: 0,
+          pendingRequests: 0
+        });
+      } finally {
+        setActivityLoading(false);
+      }
+    };
+
+    fetchActivity();
+  }, [user]);
+
   const showMessage = (text, type) => {
-    setMessage(text);
-    setMessageType(type);
+    setToast({ text, type });
     setTimeout(() => {
-      setMessage('');
+      setToast({ text: '', type: '' });
     }, 3000);
   };
 
@@ -47,6 +111,7 @@ const ProfilePage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSavingProfile(true);
     try {
       const updatedUser = await updateUserProfile(formData);
       updateGlobalUser(updatedUser);
@@ -54,6 +119,8 @@ const ProfilePage = () => {
       showMessage('Profile updated successfully!', 'success');
     } catch (error) {
       showMessage('Error updating profile', 'error');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -116,127 +183,102 @@ const ProfilePage = () => {
     return <div className="container">User not found</div>;
   }
 
-  return (
-    <div className="container">
-      <div className="card">
-        <div className="card-header">
-          <h2>Profile</h2>
-        </div>
-        <div className="card-body">
-          {message && (
-            <div className={`alert alert-${messageType}`}>
-              {message}
-            </div>
-          )}
+  const profileInitial = user.name?.charAt(0).toUpperCase() || 'U';
 
-          {!editing ? (
-            <div>
-              <div className="profile-info">
-                <div className="profile-image-section">
-                  <div className="profile-image">
-                    {user.profileImage ? (
-                      <img 
-                        src={`http://localhost:5000/uploads/${user.profileImage}`} 
-                        alt={`${user.name}'s profile`}
-                        className="profile-img"
-                      />
-                    ) : (
-                      <div className="profile-placeholder">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="profile-details">
-                  <p><strong>Name:</strong> {user.name}</p>
-                  <p><strong>Email:</strong> {user.email}</p>
-                  <p><strong>City:</strong> {user.city}</p>
-                  <p><strong>Sport:</strong> {user.sport}</p>
-                  <p><strong>Skill Level:</strong> {user.skillLevel}</p>
-                </div>
+  return (
+    <div className="page">
+      <Navbar />
+      <main className="page-content profile-dashboard">
+        {toast.text && <div className={`profile-toast profile-toast-${toast.type}`}>{toast.text}</div>}
+
+        <div className="profile-dashboard-grid">
+          <section className="card profile-panel profile-panel-left">
+            <div className="profile-photo-wrap">
+              <div className="profile-avatar profile-avatar-large">
+                {user.profileImage ? (
+                  <img
+                    src={`http://localhost:5000/uploads/${user.profileImage}`}
+                    alt={`${user.name}'s profile`}
+                    className="profile-img"
+                  />
+                ) : (
+                  <div className="profile-placeholder">{profileInitial}</div>
+                )}
+                <div className="profile-photo-overlay">Change Photo</div>
               </div>
-              <button
-                className="btn btn-primary"
-                onClick={() => setEditing(true)}
-              >
-                Edit Profile
+            </div>
+
+            <h2 className="profile-user-name">
+              <span className="profile-icon" aria-hidden="true">👤</span> {user.name}
+            </h2>
+            <p className="profile-user-email">
+              <span className="profile-icon" aria-hidden="true">✉️</span> {user.email}
+            </p>
+
+            <div className="profile-details-grid">
+              <div className="profile-row">
+                <span className="profile-label">City</span>
+                <span className="profile-value"><span className="profile-icon" aria-hidden="true">📍</span> {user.city || 'Not set'}</span>
+              </div>
+              <div className="profile-row">
+                <span className="profile-label">Sport</span>
+                <span className="profile-value"><span className="profile-icon" aria-hidden="true">🏅</span> {user.sport || 'Not set'}</span>
+              </div>
+              <div className="profile-row">
+                <span className="profile-label">Skill</span>
+                <span className="profile-value"><span className="profile-icon" aria-hidden="true">⭐</span> {user.skillLevel || 'Not set'}</span>
+              </div>
+            </div>
+
+            <div className="profile-actions">
+              <button className="btn btn-primary profile-glow-btn" onClick={() => setEditing((prev) => !prev)}>
+                {editing ? 'Close Editor' : 'Edit Profile'}
               </button>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="name">Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                />
+          </section>
+
+          <section className="card profile-panel profile-panel-center">
+            <h3 className="profile-section-title"><span className="profile-icon" aria-hidden="true">📊</span> User Activity</h3>
+            <div className="profile-activity-grid">
+              <div className="profile-activity-card">
+                <p className="profile-activity-title"><span className="profile-icon" aria-hidden="true">👥</span> My Teams</p>
+                <p className="profile-activity-count">
+                  {activityLoading ? '...' : activity.myTeams.length}
+                </p>
+                <div className="profile-mini-list">
+                  {activity.myTeams.length > 0 ? (
+                    activity.myTeams.map((team) => (
+                      <span key={team._id} className="profile-mini-item">
+                        {team.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="profile-mini-item muted">No teams yet</span>
+                  )}
+                </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="city">City</label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                />
+              <div className="profile-activity-card">
+                <p className="profile-activity-title"><span className="profile-icon" aria-hidden="true">🏟️</span> Matches Joined</p>
+                <p className="profile-activity-count">
+                  {activityLoading ? '...' : activity.joinedMatches}
+                </p>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="sport">Sport</label>
-                <input
-                  type="text"
-                  id="sport"
-                  name="sport"
-                  value={formData.sport}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                />
+              <div className="profile-activity-card">
+                <p className="profile-activity-title"><span className="profile-icon" aria-hidden="true">⏳</span> Pending Requests</p>
+                <p className="profile-activity-count">
+                  {activityLoading ? '...' : activity.pendingRequests}
+                </p>
               </div>
-
-              <div className="form-group">
-                <label htmlFor="skillLevel">Skill Level</label>
-                <select
-                  id="skillLevel"
-                  name="skillLevel"
-                  value={formData.skillLevel}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                >
-                  <option value="">Select Skill Level</option>
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
-              </div>
-
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary">
-                  Save Changes
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={handleCancel}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Image Upload Section */}
-          <div className="card" style={{ marginTop: '1rem' }}>
-            <div className="card-header">
-              <h3>Upload Profile Image</h3>
             </div>
-            <div className="card-body">
+          </section>
+
+          <section className="card profile-panel profile-panel-right">
+            <h3 className="profile-section-title"><span className="profile-icon" aria-hidden="true">⚡</span> Actions</h3>
+
+            <div className="profile-upload-card">
+              <h4><span className="profile-icon" aria-hidden="true">🖼️</span> Upload Profile Image</h4>
               <div className="form-group">
                 <label htmlFor="profileImage">Select Image</label>
                 <input
@@ -246,24 +288,102 @@ const ProfilePage = () => {
                   onChange={handleFileChange}
                   className="form-control"
                 />
-                {selectedFile && (
-                  <p className="file-info">
-                    Selected: {selectedFile.name}
-                  </p>
-                )}
+                {selectedFile && <p className="file-info">Selected: {selectedFile.name}</p>}
               </div>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary profile-glow-btn"
                 onClick={handleImageUpload}
                 disabled={uploadLoading || !selectedFile}
               >
                 {uploadLoading ? 'Uploading...' : 'Upload Image'}
               </button>
             </div>
-          </div>
+
+            {editing && (
+              <form onSubmit={handleSubmit} className="profile-edit-form">
+                <h4><span className="profile-icon" aria-hidden="true">✏️</span> Edit Details</h4>
+                <div className="form-group">
+                  <label htmlFor="name">Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="city">City</label>
+                  <input
+                    type="text"
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="sport">Sport</label>
+                  <input
+                    type="text"
+                    id="sport"
+                    name="sport"
+                    value={formData.sport}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="skillLevel">Skill Level</label>
+                  <select
+                    id="skillLevel"
+                    name="skillLevel"
+                    value={formData.skillLevel}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  >
+                    <option value="">Select Skill Level</option>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary profile-glow-btn" disabled={savingProfile}>
+                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={handleCancel}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="profile-quick-actions">
+              <h4><span className="profile-icon" aria-hidden="true">🚀</span> Quick Actions</h4>
+              <div className="profile-action-links">
+                <Link to="/teams" className="btn btn-outline">
+                  Create Team
+                </Link>
+                <Link to="/matches" className="btn btn-outline">
+                  Create Match
+                </Link>
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -223,15 +223,17 @@ const TeamsPage = () => {
 
           <div className="list">
             {teams.map((team) => {
+              if (!team || !team._id) return null;
               console.log('Rendering team:', team.name, 'ID:', team._id);
               console.log('My requests:', myRequests);
               console.log('Current team ID:', team._id);
               console.log('Team object:', team);
               const isMember = team.members?.some(
-                (m) => m._id === user?._id || m === user?._id
+                (m) => m && (m._id === user?._id || m === user?._id)
               );
               const hasRequested = myRequests.some(
                 req => {
+                  if (!req || !req.team) return false;
                   // Convert both to strings for reliable comparison
                   const requestTeamId = String(req.team._id || req.team);
                   const currentTeamId = String(team._id);
@@ -243,9 +245,10 @@ const TeamsPage = () => {
                 }
               );
               console.log('Has requested for this team:', hasRequested);
-              const isAdmin = team.admin._id === user?._id;
+              const isAdmin = team.admin && team.admin._id === user?._id;
               const pendingRequestsCount = allTeamRequests.filter(
                 req => {
+                  if (!req || !req.team) return false;
                   const requestTeamId = String(req.team._id || req.team);
                   const currentTeamId = String(team._id);
                   return requestTeamId === currentTeamId && normalizeStatus(req.status) === 'pending';
@@ -285,6 +288,14 @@ const TeamsPage = () => {
                     <span className="tag">
                       Members: {team.members ? team.members.length : 0}
                     </span>
+                    {isMember && (
+                      <Link 
+                        to={`/chat/team/${team._id}`} 
+                        className="btn btn-small btn-primary chat-btn"
+                      >
+                        💬 Chat
+                      </Link>
+                    )}
                     {isAdmin && (
                       <Link 
                         to={`/team/${team._id}`} 
@@ -293,18 +304,16 @@ const TeamsPage = () => {
                         Requests {pendingRequestsCount > 0 && `(${pendingRequestsCount})`}
                       </Link>
                     )}
-                    {!isAdmin && (
+                    {!isMember && (
                       <button
                         type="button"
                         className={`btn btn-small ${
-                          isMember ? 'btn-secondary' : 
                           hasRequested ? 'btn-outline' : 'btn-primary'
                         }`}
-                        disabled={isMember || hasRequested}
+                        disabled={hasRequested}
                         onClick={() => handleJoinTeam(team._id)}
                       >
-                        {isMember ? 'Joined' : 
-                         hasRequested ? 'Request Sent' : 'Request to Join'}
+                        {hasRequested ? 'Request Sent' : 'Request to Join'}
                       </button>
                     )}
                   </div>

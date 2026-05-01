@@ -31,6 +31,7 @@ app.use('/api/teams', require('./routes/teamRoutes'));
 app.use('/api/matches', require('./routes/matchRoutes'));
 app.use('/api/requests', require('./routes/requestRoutes'));
 app.use('/api/match-requests', require('./routes/matchRequestRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/debug', require('./routes/debugRoutes'));
 
