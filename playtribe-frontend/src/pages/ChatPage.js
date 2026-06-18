@@ -4,8 +4,7 @@ import Navbar from '../components/Navbar';
 import { 
   getTeamChat, 
   getMatchChat, 
-  sendMessage, 
-  getChatMessages 
+  sendMessage
 } from '../services/chatService';
 import { useAuth } from '../context/AuthContext';
 import { getUploadUrl } from '../services/api';

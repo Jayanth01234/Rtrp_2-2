@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { createTeam, getTeams } from '../services/teamService';
@@ -31,7 +31,7 @@ const TeamsPage = () => {
   const [allTeamRequests, setAllTeamRequests] = useState([]);
   const normalizeStatus = (status) => String(status || '').toLowerCase();
 
-  const fetchTeams = async (activeFilters = {}) => {
+  const fetchTeams = useCallback(async (activeFilters = {}) => {
     setLoading(true);
     setError('');
     try {
@@ -44,30 +44,9 @@ const TeamsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTeams();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        sport: user.sport || '',
-        city: user.city || ''
-      }));
-      fetchMyRequests();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && teams.length > 0) {
-      fetchAllTeamRequests();
-    }
-  }, [user, teams]);
-
-  const fetchMyRequests = async () => {
+  const fetchMyRequests = useCallback(async () => {
     try {
       console.log('Fetching user requests from API...');
       const requests = await getMyRequests();
@@ -75,13 +54,12 @@ const TeamsPage = () => {
     } catch (err) {
       console.log('Failed to fetch user requests:', err);
     }
-  };
+  }, []);
 
-  const fetchAllTeamRequests = async () => {
+  const fetchAllTeamRequests = useCallback(async () => {
     if (!user) return;
     
     try {
-      // Get requests for all teams created by this user
       const userTeams = teams.filter(team => team.admin._id === user._id);
       const allRequests = [];
       
@@ -98,7 +76,28 @@ const TeamsPage = () => {
     } catch (err) {
       console.log('Failed to fetch all team requests:', err);
     }
-  };
+  }, [user, teams]);
+
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        sport: user.sport || '',
+        city: user.city || ''
+      }));
+      fetchMyRequests();
+    }
+  }, [user, fetchMyRequests]);
+
+  useEffect(() => {
+    if (user && teams.length > 0) {
+      fetchAllTeamRequests();
+    }
+  }, [user, teams, fetchAllTeamRequests]);
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();

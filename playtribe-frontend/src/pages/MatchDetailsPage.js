@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getMatchRequests, updateMatchRequest } from '../services/matchRequestService';
 import { getMatch } from '../services/matchService';
@@ -9,7 +9,6 @@ import { getUploadUrl } from '../services/api';
 const MatchDetailsPage = () => {
   const { user } = useAuth();
   const { matchId } = useParams();
-  const navigate = useNavigate();
   const [match, setMatch] = useState(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,23 +40,16 @@ const MatchDetailsPage = () => {
     return { label: 'Upcoming', className: 'tag tag-upcoming' };
   };
 
-  useEffect(() => {
-    fetchMatchData();
-    if (user) {
-      fetchRequests();
-    }
-  }, [matchId, user]);
-
-  const fetchMatchData = async () => {
+  const fetchMatchData = useCallback(async () => {
     try {
       const data = await getMatch(matchId);
       setMatch(data);
     } catch (err) {
       setError('Failed to load match details');
     }
-  };
+  }, [matchId]);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       const data = await getMatchRequests(matchId);
       setRequests(data);
@@ -66,7 +58,14 @@ const MatchDetailsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [matchId]);
+
+  useEffect(() => {
+    fetchMatchData();
+    if (user) {
+      fetchRequests();
+    }
+  }, [user, fetchMatchData, fetchRequests]);
 
   const handleRequestAction = async (requestId, action) => {
     try {

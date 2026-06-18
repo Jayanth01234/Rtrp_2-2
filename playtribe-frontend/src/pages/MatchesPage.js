@@ -1,22 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import Navbar from '../components/Navbar';
 import { createMatch, getMatches } from '../services/matchService';
 import { createMatchJoinRequest, getMyMatchRequests, getMatchRequests } from '../services/matchRequestService';
 import { useAuth } from '../context/AuthContext';
 import { getUploadUrl } from '../services/api';
 
-const googleLibraries = ['places'];
-
 const MatchesPage = () => {
   const skillLevels = ['Beginner', 'Intermediate', 'Advanced'];
   const { user } = useAuth();
-  const googleMapsApiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
-  const { isLoaded: isMapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
-    googleMapsApiKey,
-    libraries: googleLibraries,
-  });
   const [matches, setMatches] = useState([]);
   const [filters, setFilters] = useState({
     city: '',
@@ -38,8 +30,6 @@ const MatchesPage = () => {
   });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
-  const [locationSearch, setLocationSearch] = useState('');
-  const [autocomplete, setAutocomplete] = useState(null);
   const [joiningId, setJoiningId] = useState(null);
   const [myMatchRequests, setMyMatchRequests] = useState([]);
   const [allMatchRequests, setAllMatchRequests] = useState([]);
@@ -74,7 +64,7 @@ const MatchesPage = () => {
     return { label: 'Upcoming', className: 'tag tag-upcoming' };
   };
 
-  const fetchMatches = async (activeFilters = {}) => {
+  const fetchMatches = useCallback(async (activeFilters = {}) => {
     setLoading(true);
     setError('');
     try {
@@ -87,44 +77,21 @@ const MatchesPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchMatches();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        sport: user.sport || '',
-        city: user.city || ''
-      }));
-      setLocationSearch('');
-      fetchMyMatchRequests();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && matches.length > 0) {
-      fetchAllMatchRequests();
-    }
-  }, [user, matches]);
-
-  const fetchMyMatchRequests = async () => {
+  const fetchMyMatchRequests = useCallback(async () => {
     try {
       const requests = await getMyMatchRequests();
       setMyMatchRequests(requests);
     } catch (err) {
       console.log('Failed to fetch match requests:', err);
     }
-  };
+  }, []);
 
-  const fetchAllMatchRequests = async () => {
+  const fetchAllMatchRequests = useCallback(async () => {
     if (!user) return;
     
     try {
-      // Get requests for all matches created by this user
       const userMatches = matches.filter((match) => {
         const creatorId = match?.creator?._id || match?.creator;
         return creatorId && user?._id && String(creatorId) === String(user._id);
@@ -144,7 +111,28 @@ const MatchesPage = () => {
     } catch (err) {
       console.log('Failed to fetch all match requests:', err);
     }
-  };
+  }, [user, matches]);
+
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        sport: user.sport || '',
+        city: user.city || ''
+      }));
+      fetchMyMatchRequests();
+    }
+  }, [user, fetchMyMatchRequests]);
+
+  useEffect(() => {
+    if (user && matches.length > 0) {
+      fetchAllMatchRequests();
+    }
+  }, [user, matches, fetchAllMatchRequests]);
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
@@ -165,9 +153,6 @@ const MatchesPage = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === 'location') {
-      setLocationSearch(value);
-    }
   };
 
   const handleCreateMatch = async (e) => {
@@ -210,8 +195,6 @@ const MatchesPage = () => {
         longitude: '',
         locationUrl: '',
       });
-      setLocationSearch('');
-      // Fetch requests after creating a new match
       setTimeout(() => fetchAllMatchRequests(), 100);
     } catch (err) {
       const message =
@@ -242,36 +225,6 @@ const MatchesPage = () => {
     }
   };
 
-  
-  const handlePlaceChanged = () => {
-    const place = autocomplete?.getPlace();
-    if (!place) {
-      return;
-    }
-
-    const geometryLocation = place.geometry?.location;
-    const latitude = geometryLocation?.lat?.();
-    const longitude = geometryLocation?.lng?.();
-    const cityComponent = place.address_components?.find((component) =>
-      component.types.some((type) =>
-        ['locality', 'administrative_area_level_2', 'postal_town', 'sublocality'].includes(type)
-      )
-    );
-
-    const selectedLocation = place.formatted_address || place.name || '';
-    const selectedCity = cityComponent?.long_name || '';
-
-    setFormData((prev) => ({
-      ...prev,
-      location: selectedLocation,
-      city: selectedCity || prev.city,
-      latitude: latitude ? latitude.toFixed(6) : prev.latitude,
-      longitude: longitude ? longitude.toFixed(6) : prev.longitude,
-    }));
-    setLocationSearch(selectedLocation);
-  };
-
-  
   return (
     <div className="page">
       <Navbar />

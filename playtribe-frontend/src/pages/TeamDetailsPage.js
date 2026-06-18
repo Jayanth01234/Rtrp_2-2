@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getTeamRequests, updateRequestStatus } from '../services/requestService';
@@ -19,31 +19,15 @@ const TeamDetailsPage = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
 
-  useEffect(() => {
-    fetchTeamData();
-  }, [teamId]);
-
-  const handleDebug = async () => {
-    try {
-      const response = await api.get(`/api/debug/team/${teamId}`);
-      console.log('Debug info:', response.data);
-      setDebugInfo(response.data);
-    } catch (err) {
-      console.log('Debug error:', err);
-    }
-  };
-
-  const fetchTeamData = async () => {
+  const fetchTeamData = useCallback(async () => {
     console.log('Fetching team data - Team ID:', teamId);
     console.log('Current user:', user?.name, user?._id);
     
     try {
-      // Fetch team details
       const teamData = await getTeam(teamId);
       console.log('Team data received:', teamData);
       setTeam(teamData);
 
-      // Only fetch requests if user is admin
       if (user?._id === teamData.admin._id) {
         console.log('User is admin, fetching requests...');
         const requestsData = await getTeamRequests(teamId);
@@ -62,6 +46,20 @@ const TeamDetailsPage = () => {
     } finally {
       setLoading(false);
     }
+  }, [teamId, user]);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [fetchTeamData]);
+
+  const handleDebug = async () => {
+    try {
+      const response = await api.get(`/api/debug/team/${teamId}`);
+      console.log('Debug info:', response.data);
+      setDebugInfo(response.data);
+    } catch (err) {
+      console.log('Debug error:', err);
+    }
   };
 
   const handleJoinTeam = async () => {
@@ -73,7 +71,6 @@ const TeamDetailsPage = () => {
     setJoinLoading(true);
     try {
       await createJoinRequest(teamId);
-      // Refresh requests to show updated state
       if (team?.admin === user._id) {
         const requestsData = await getTeamRequests(teamId);
         setRequests(requestsData);
