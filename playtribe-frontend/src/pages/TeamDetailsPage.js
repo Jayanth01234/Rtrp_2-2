@@ -5,7 +5,7 @@ import { getTeamRequests, updateRequestStatus } from '../services/requestService
 import { createJoinRequest } from '../services/requestService';
 import { getTeam } from '../services/teamService';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import api, { getUploadUrl } from '../services/api';
 
 const TeamDetailsPage = () => {
   const { teamId } = useParams();
@@ -165,7 +165,7 @@ const TeamDetailsPage = () => {
                     <div key={member._id} className="participant-item">
                       {member.profileImage ? (
                         <img
-                          src={`http://localhost:5000/uploads/${member.profileImage}`}
+                          src={getUploadUrl(member.profileImage)}
                           alt={member.name}
                           className="participant-avatar"
                         />
@@ -216,7 +216,7 @@ const TeamDetailsPage = () => {
                         <div className="request-user-header">
                           {request.user.profileImage ? (
                             <img 
-                              src={`http://localhost:5000/uploads/${request.user.profileImage}`} 
+                              src={getUploadUrl(request.user.profileImage)} 
                               alt={request.user.name}
                               className="request-avatar"
                             />

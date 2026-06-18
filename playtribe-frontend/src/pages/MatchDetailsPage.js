@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import { getMatchRequests, updateMatchRequest } from '../services/matchRequestService';
 import { getMatch } from '../services/matchService';
 import { useAuth } from '../context/AuthContext';
+import { getUploadUrl } from '../services/api';
 
 const MatchDetailsPage = () => {
   const { user } = useAuth();
@@ -104,7 +105,7 @@ const MatchDetailsPage = () => {
             <div className="creator-info">
               {match.creator?.profileImage ? (
                 <img 
-                  src={`http://localhost:5000/uploads/${match.creator.profileImage}`} 
+                  src={getUploadUrl(match.creator.profileImage)} 
                   alt={match.creator.name}
                   className="creator-avatar"
                 />
@@ -125,7 +126,7 @@ const MatchDetailsPage = () => {
                   <div key={participant._id} className="participant-item">
                     {participant.profileImage ? (
                       <img 
-                        src={`http://localhost:5000/uploads/${participant.profileImage}`} 
+                        src={getUploadUrl(participant.profileImage)} 
                         alt={participant.name}
                         className="participant-avatar"
                       />
@@ -154,7 +155,7 @@ const MatchDetailsPage = () => {
                     <div className="request-user-info">
                       {request.user.profileImage ? (
                         <img 
-                          src={`http://localhost:5000/uploads/${request.user.profileImage}`} 
+                          src={getUploadUrl(request.user.profileImage)} 
                           alt={request.user.name}
                           className="request-avatar"
                         />

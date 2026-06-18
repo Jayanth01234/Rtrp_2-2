@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 import NotificationBell from './NotificationBell';
+import { getUploadUrl } from '../services/api';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -41,7 +42,7 @@ const Navbar = () => {
           <div className="navbar-user-section">
             {user.profileImage ? (
               <img 
-                src={`http://localhost:5000/uploads/${user.profileImage}`} 
+                src={getUploadUrl(user.profileImage)} 
                 alt={user.name}
                 className="navbar-avatar"
               />

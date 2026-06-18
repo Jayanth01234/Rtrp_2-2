@@ -8,6 +8,7 @@ import {
   getChatMessages 
 } from '../services/chatService';
 import { useAuth } from '../context/AuthContext';
+import { getUploadUrl } from '../services/api';
 
 const ChatPage = () => {
   const { type, id } = useParams(); // type: 'team' or 'match', id: teamId or matchId
@@ -127,7 +128,7 @@ const ChatPage = () => {
   // Get sender avatar
   const getSenderAvatar = (sender) => {
     if (sender?.profileImage) {
-      return `http://localhost:5000/uploads/${sender.profileImage}`;
+      return getUploadUrl(sender.profileImage);
     }
     return null;
   };

@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import { createTeam, getTeams } from '../services/teamService';
 import { createJoinRequest, getMyRequests, getTeamRequests } from '../services/requestService';
 import { useAuth } from '../context/AuthContext';
+import { getUploadUrl } from '../services/api';
 
 const TeamsPage = () => {
   const skillLevels = ['Beginner', 'Intermediate', 'Advanced'];
@@ -272,7 +273,7 @@ const TeamsPage = () => {
                     <div className="creator-info">
                       {team.admin?.profileImage ? (
                         <img 
-                          src={`http://localhost:5000/uploads/${team.admin.profileImage}`} 
+                          src={getUploadUrl(team.admin.profileImage)} 
                           alt={team.admin.name}
                           className="creator-avatar"
                         />

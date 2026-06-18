@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import { createMatch, getMatches } from '../services/matchService';
 import { createMatchJoinRequest, getMyMatchRequests, getMatchRequests } from '../services/matchRequestService';
 import { useAuth } from '../context/AuthContext';
+import { getUploadUrl } from '../services/api';
 
 const googleLibraries = ['places'];
 
@@ -376,7 +377,7 @@ const MatchesPage = () => {
                     <div className="creator-info">
                       {match.creator?.profileImage ? (
                         <img 
-                          src={`http://localhost:5000/uploads/${match.creator.profileImage}`} 
+                          src={getUploadUrl(match.creator.profileImage)} 
                           alt={match.creator?.name || 'Match creator'}
                           className="creator-avatar"
                         />

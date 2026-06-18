@@ -7,6 +7,7 @@ import { getMyRequests } from '../services/requestService';
 import { getMyMatchRequests } from '../services/matchRequestService';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
+import { getUploadUrl } from '../services/api';
 
 const ProfilePage = () => {
   const { user, updateUserProfile: updateGlobalUser } = useAuth();
@@ -197,7 +198,7 @@ const ProfilePage = () => {
               <div className="profile-avatar profile-avatar-large">
                 {user.profileImage ? (
                   <img
-                    src={`http://localhost:5000/uploads/${user.profileImage}`}
+                    src={getUploadUrl(user.profileImage)}
                     alt={`${user.name}'s profile`}
                     className="profile-img"
                   />

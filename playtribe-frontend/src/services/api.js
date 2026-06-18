@@ -1,8 +1,12 @@
 import axios from 'axios';
 
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000',
+  baseURL: API_BASE_URL,
 });
+
+export const getUploadUrl = (filename) => `${API_BASE_URL}/uploads/${filename}`;
 
 api.interceptors.request.use(
   (config) => {
@@ -31,4 +35,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
